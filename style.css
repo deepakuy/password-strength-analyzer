@@ -1,17 +1,397 @@
+/* Base Styles & Variables */
+:root {
+    /* Light Theme */
+    --bg-color: #f8f9fa;
+    --card-bg: #ffffff;
+    --text-primary: #2c3e50;
+    --text-secondary: #6c757d;
+    --border-color: #e0e0e0;
+    --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    --success: #28a745;
+    --warning: #ffc107;
+    --danger: #dc3545;
+    --info: #17a2b8;
+    
+    /* Animation */
+    --transition: all 0.3s ease;
+}
+
+/* Dark Theme */
+.dark-theme {
+    --bg-color: #1a1a2e;
+    --card-bg: #16213e;
+    --text-primary: #f8f9fa;
+    --text-secondary: #adb5bd;
+    --border-color: #2d3748;
+    --shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
 body {
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    background-color: var(--bg-color);
+    color: var(--text-primary);
     min-height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 20px;
+    padding: 2rem;
+    line-height: 1.6;
+    transition: var(--transition);
+}
+
+/* Theme Toggle */
+.theme-toggle {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.5rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+    z-index: 100;
+}
+
+.theme-toggle:hover {
+    transform: translateY(-2px);
+}
+
+/* Container */
+.container {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* Header */
+.header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.header h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.subtitle {
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+/* Password Card */
+.password-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border-color);
+    transition: var(--transition);
+}
+
+.password-field {
+    position: relative;
+    margin-bottom: 1.5rem;
+}
+
+.password-field input {
+    width: 100%;
+    padding: 1rem 3.5rem 1rem 1rem;
+    font-size: 1.1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text-primary);
+    transition: var(--transition);
+}
+
+.password-field input:focus {
+    outline: none;
+    border-color: var(--info);
+    box-shadow: 0 0 0 3px rgba(23, 162, 184, 0.2);
+}
+
+.toggle-btn {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: var(--transition);
+}
+
+.toggle-btn:hover {
+    color: var(--text-primary);
+    background: rgba(0, 0, 0, 0.05);
+}
+
+/* Strength Meter */
+.strength-meter {
+    margin-bottom: 1.5rem;
+}
+
+.strength-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.strength-bar {
+    display: flex;
+    gap: 4px;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #e9ecef;
+}
+
+.strength-segment {
+    flex: 1;
+    height: 100%;
+    background: #e9ecef;
+    transition: var(--transition);
+}
+
+.strength-segment[data-strength="weak"] {
+    background: var(--danger);
+}
+
+.strength-segment[data-strength="medium"] {
+    background: var(--warning);
+}
+
+.strength-segment[data-strength="strong"] {
+    background: var(--info);
+}
+
+.strength-segment[data-strength="excellent"] {
+    background: var(--success);
+}
+
+.strength-text {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-top: 0.75rem;
+}
+
+.strength-text i {
+    font-size: 1rem;
+}
+
+/* Password Stats */
+.password-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+    background: rgba(0, 0, 0, 0.03);
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.stat-value {
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+
+/* Composition Bars */
+.composition-container {
+    margin: 2rem 0;
+}
+
+.composition-container h3 {
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.composition-bars {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+
+.composition-bar {
+    text-align: center;
+}
+
+.composition-bar span {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+}
+
+.composition-fill {
+    height: 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.composition-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0%;
+    background: var(--info);
+    transition: var(--transition);
+}
+
+.composition-bar[data-type="lowercase"] .composition-fill::after {
+    background: #6f42c1;
+}
+
+.composition-bar[data-type="uppercase"] .composition-fill::after {
+    background: #20c997;
+}
+
+.composition-bar[data-type="numbers"] .composition-fill::after {
+    background: #fd7e14;
+}
+
+.composition-bar[data-type="special"] .composition-fill::after {
+    background: #e83e8c;
+}
+
+/* Suggestions */
+.suggestions-container {
+    margin: 2rem 0;
+}
+
+.suggestions-container h3 {
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.suggestions-list {
+    list-style: none;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.suggestions-list li {
+    padding: 0.5rem 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.suggestions-list li:before {
+    content: '•';
+    color: var(--info);
+}
+
+/* Password Tips */
+.password-tips {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.password-tips h3 {
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.password-tips ul {
+    list-style: none;
+    padding-left: 1.5rem;
+}
+
+.password-tips li {
+    position: relative;
+    padding: 0.25rem 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.password-tips li:before {
+    content: '✓';
+    position: absolute;
+    left: -1.5rem;
+    color: var(--success);
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+    body {
+        padding: 1rem;
+    }
+    
+    .container {
+        padding: 0;
+    }
+    
+    .password-card {
+        padding: 1.5rem;
+    }
+    
+    .password-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .composition-bars {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem 0.5rem;
+    }
 }
 
 .container {
@@ -111,6 +491,95 @@ h1 {
 .requirements li.valid::before {
     content: '✓';
     color: #2ecc71;
+}
+
+.entropy-container {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+}
+
+.entropy-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+    color: #2c3e50;
+}
+
+.entropy-info span:first-child {
+    font-weight: 600;
+}
+
+#entropyValue {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.entropy-detail {
+    font-size: 0.85rem;
+    color: #7f8c8d;
+    margin-left: 0.5rem;
+}
+
+.entropy-bar {
+    height: 8px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    margin: 0.5rem 0;
+    overflow: hidden;
+}
+
+.entropy-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #ff6b6b, #4ecdc4);
+    transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.entropy-scale {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #7f8c8d;
+    margin-top: 0.25rem;
+}
+
+.crack-time {
+    margin: 1rem 0;
+    font-size: 0.9rem;
+    color: #7f8c8d;
+    text-align: center;
+    font-weight: 500;
+}
+
+.suggestions {
+    margin-top: 1rem;
+    padding: 0.8rem;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    color: #2c3e50;
+    display: none;
+}
+
+.suggestions h4 {
+    margin-bottom: 0.5rem;
+    color: #2c3e50;
+    font-size: 0.9rem;
+}
+
+.suggestions ul {
+    margin: 0;
+    padding-left: 1.2rem;
+}
+
+.suggestions li {
+    margin-bottom: 0.3rem;
+    font-size: 0.85rem;
 }
 
 /* Responsive Design */

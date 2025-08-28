@@ -3,28 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Password Strength Analyzer</title>
+    <title>🔒 Modern Password Strength Analyzer</title>
     <link rel="stylesheet" href="style.css">
+    <!-- zxcvbn.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body>
-    <div class="container">
-        <h1>Password Strength Analyzer</h1>
-        <div class="password-container">
-            <input type="password" id="passwordInput" placeholder="Enter your password">
-            <button id="toggleVisibility">👁️</button>
-        </div>
-        <div class="strength-meter">
-            <div class="strength-bar" id="strengthBar"></div>
-        </div>
-        <div class="strength-text" id="strengthText">Password Strength: Very Weak</div>
-        <ul class="requirements" id="requirementsList">
-            <li data-requirement="length">At least 8 characters long</li>
-            <li data-requirement="uppercase">Contains uppercase letters</li>
-            <li data-requirement="lowercase">Contains lowercase letters</li>
-            <li data-requirement="number">Contains numbers</li>
-            <li data-requirement="special">Contains special characters</li>
-        </ul>
+<body class="light-theme">
+    <div class="theme-toggle" id="themeToggle">
+        <i class="fas fa-moon"></i>
     </div>
+    
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-lock"></i> Password Strength Analyzer</h1>
+            <p class="subtitle">Check how strong your password is in real-time</p>
+        </div>
+        
+        <div class="password-card">
+            <div class="password-input-container">
+                <div class="password-field">
+                    <input type="password" id="passwordInput" placeholder="Type your password here..." autocomplete="off">
+                    <button id="toggleVisibility" class="toggle-btn" aria-label="Toggle password visibility">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                
+                <div class="strength-meter">
+                    <div class="strength-labels">
+                        <span>Weak</span>
+                        <span>Medium</span>
+                        <span>Strong</span>
+                        <span>Excellent</span>
+                    </div>
+                    <div class="strength-bar">
+                        <div class="strength-segment" data-strength="weak"></div>
+                        <div class="strength-segment" data-strength="medium"></div>
+                        <div class="strength-segment" data-strength="strong"></div>
+                        <div class="strength-segment" data-strength="excellent"></div>
+                    </div>
+                </div>
+                
+                <div class="strength-text" id="strengthText">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Enter a password to check its strength</span>
+                </div>
+            </div>
+            
+            <div class="password-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Length:</span>
+                    <span class="stat-value" id="lengthValue">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Entropy:</span>
+                    <span class="stat-value" id="entropyValue">0</span> bits
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Time to Crack:</span>
+                    <span class="stat-value" id="crackTime">Instant</span>
+                </div>
+            </div>
+            
+            <div class="composition-container">
+                <h3>Character Composition</h3>
+                <div class="composition-bars">
+                    <div class="composition-bar" data-type="lowercase">
+                        <div class="composition-fill"></div>
+                        <span>a-z</span>
+                    </div>
+                    <div class="composition-bar" data-type="uppercase">
+                        <div class="composition-fill"></div>
+                        <span>A-Z</span>
+                    </div>
+                    <div class="composition-bar" data-type="numbers">
+                        <div class="composition-fill"></div>
+                        <span>0-9</span>
+                    </div>
+                    <div class="composition-bar" data-type="special">
+                        <div class="composition-fill"></div>
+                        <span>!@#</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="suggestions-container" id="suggestionsContainer">
+                <h3><i class="fas fa-lightbulb"></i> Suggestions</h3>
+                <ul class="suggestions-list" id="suggestionsList">
+                    <li>Enter a password to get suggestions</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="password-tips">
+            <h3><i class="fas fa-shield-alt"></i> Password Tips</h3>
+            <ul>
+                <li>Use at least 12 characters</li>
+                <li>Include numbers, symbols, and both cases</li>
+                <li>Avoid common words and patterns</li>
+                <li>Consider using a passphrase</li>
+            </ul>
+        </div>
+    </div>
+    
     <script src="script.js"></script>
 </body>
 </html>
