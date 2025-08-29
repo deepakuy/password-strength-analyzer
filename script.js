@@ -14,6 +14,11 @@ let compositionChart, strengthRadarChart, crackTimeChart;
 let overallScoreElement, scoreGradeElement, lengthScoreElement, complexityScoreElement, 
     uniquenessScoreElement, securityScoreElement;
 
+// Performance optimization
+let analysisTimeout;
+let lastAnalyzedPassword = '';
+let isAnalysisInProgress = false;
+
 // Character sets for password generation
 const CHARSETS = {
     lowercase: 'abcdefghijklmnopqrstuvwxyz',
@@ -194,6 +199,7 @@ function updateSuggestions(password) {
 }
 
 function analyzePassword() {
+    const startTime = PerformanceMonitor.startAnalysis();
     const password = passwordInput?.value || '';
     
     // Update length
@@ -225,6 +231,9 @@ function analyzePassword() {
     
     // Update security score card
     updateSecurityScoreCard(password);
+    
+    // Record performance
+    PerformanceMonitor.endAnalysis(startTime);
 }
 
 function togglePasswordVisibility() {
@@ -1288,6 +1297,111 @@ This policy provides ${policyType === 'basic' ? 'basic' : policyType === 'enhanc
     }
 }
 
+// Performance Optimization Functions
+function createDebouncedFunction(func, delay) {
+    let timeoutId;
+    return function (...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => func.apply(this, args), delay);
+    };
+}
+
+function shouldAnalyzePassword(password) {
+    // Skip analysis if password hasn't changed
+    if (password === lastAnalyzedPassword) {
+        return false;
+    }
+    
+    // Skip analysis if it's in progress
+    if (isAnalysisInProgress) {
+        return false;
+    }
+    
+    // Skip analysis for very long passwords to prevent performance issues
+    if (password.length > 1000) {
+        return false;
+    }
+    
+    return true;
+}
+
+function optimizePasswordAnalysis(password) {
+    if (!shouldAnalyzePassword(password)) {
+        return;
+    }
+    
+    isAnalysisInProgress = true;
+    lastAnalyzedPassword = password;
+    
+    // Use requestAnimationFrame for smooth UI updates
+    requestAnimationFrame(() => {
+        try {
+            analyzePassword();
+        } catch (error) {
+            console.error('Password analysis error:', error);
+            // Reset state on error
+            isAnalysisInProgress = false;
+            lastAnalyzedPassword = '';
+        }
+        
+        isAnalysisInProgress = false;
+    });
+}
+
+function debouncedAnalyzePassword() {
+    const password = passwordInput?.value || '';
+    
+    // Clear existing timeout
+    if (analysisTimeout) {
+        clearTimeout(analysisTimeout);
+    }
+    
+    // Set new timeout for debounced analysis
+    analysisTimeout = setTimeout(() => {
+        optimizePasswordAnalysis(password);
+    }, 150); // 150ms debounce delay
+}
+
+// Performance monitoring
+const PerformanceMonitor = {
+    analysisTimes: [],
+    
+    startAnalysis() {
+        return performance.now();
+    },
+    
+    endAnalysis(startTime) {
+        const duration = performance.now() - startTime;
+        this.analysisTimes.push(duration);
+        
+        // Keep only last 100 measurements
+        if (this.analysisTimes.length > 100) {
+            this.analysisTimes.shift();
+        }
+        
+        // Log slow analysis if it takes more than 50ms
+        if (duration > 50) {
+            console.warn(`Slow password analysis: ${duration.toFixed(2)}ms`);
+        }
+        
+        return duration;
+    },
+    
+    getAverageAnalysisTime() {
+        if (this.analysisTimes.length === 0) return 0;
+        const sum = this.analysisTimes.reduce((a, b) => a + b, 0);
+        return sum / this.analysisTimes.length;
+    },
+    
+    getPerformanceStats() {
+        return {
+            averageTime: this.getAverageAnalysisTime(),
+            totalAnalyses: this.analysisTimes.length,
+            slowAnalyses: this.analysisTimes.filter(t => t > 50).length
+        };
+    }
+};
+
 function setupReportFunctionality() {
     // PDF Report Generation
     const generatePDFBtn = document.getElementById('generatePDFReport');
@@ -1390,8 +1504,8 @@ document.addEventListener('DOMContentLoaded', function() {
     uniquenessScoreElement = document.getElementById('uniquenessScoreValue');
     securityScoreElement = document.getElementById('securityScoreValue');
 
-    // Set up event listeners
-    if (passwordInput) passwordInput.addEventListener('input', analyzePassword);
+    // Set up event listeners with debouncing
+    if (passwordInput) passwordInput.addEventListener('input', debouncedAnalyzePassword);
     if (toggleButton) toggleButton.addEventListener('click', togglePasswordVisibility);
     if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
     
@@ -1422,4 +1536,15 @@ document.addEventListener('DOMContentLoaded', function() {
     if (passwordInput && passwordInput.value) {
         analyzePassword();
     }
+    
+    // Run tests in development mode
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        setTimeout(() => {
+            if (window.TestSuite) {
+                console.log('🧪 Running test suite...');
+                window.TestSuite.runAllTests();
+            }
+        }, 1000);
+    }
+}
 });
