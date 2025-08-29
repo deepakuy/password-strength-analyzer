@@ -1,348 +1,800 @@
-document.addEventListener('DOMContentLoaded', () => {
-    // DOM Elements
-    const passwordInput = document.getElementById('passwordInput');
-    const toggleButton = document.getElementById('toggleVisibility');
-    const strengthText = document.getElementById('strengthText');
-    const crackTimeElement = document.getElementById('crackTime');
-    const lengthValueElement = document.getElementById('lengthValue');
-    const entropyValueElement = document.getElementById('entropyValue');
-    const suggestionsList = document.getElementById('suggestionsList');
-    const themeToggle = document.getElementById('themeToggle');
+// Make zxcvbn available globally
+const zxcvbn = window.zxcvbn || {};
+
+// DOM Elements
+let passwordInput, toggleButton, suggestButton, strengthText, crackTimeElement, 
+    lengthValueElement, entropyValueElement, suggestionsList, themeToggle, suggestionPanel;
+let isPasswordVisible = false;
+let currentTheme = localStorage.getItem('theme') || 'light';
+
+// Chart instances
+let compositionChart, strengthRadarChart, crackTimeChart;
+
+// Character sets for password generation
+const CHARSETS = {
+    lowercase: 'abcdefghijklmnopqrstuvwxyz',
+    uppercase: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+    numbers: '0123456789',
+    special: '!@#$%^&*()-_=+[]{}|;:,.<>?/`~'
+};
+
+// Common words for passphrase generation
+const COMMON_WORDS = [
+    'apple', 'banana', 'carrot', 'dolphin', 'elephant', 'flamingo', 'giraffe', 'hamburger',
+    'icecream', 'jellyfish', 'koala', 'lemon', 'mango', 'narwhal', 'octopus', 'penguin',
+    'quokka', 'raccoon', 'strawberry', 'tiger', 'umbrella', 'violet', 'watermelon', 'xylophone',
+    'yellow', 'zebra', 'astronaut', 'butterfly', 'caterpillar', 'dragonfly', 'elephant', 'firefly'
+];
+
+// Top 100 most common passwords
+const COMMON_PASSWORDS = [
+    '123456', 'password', '123456789', '12345', '12345678',
+    'qwerty', '1234567', '111111', '1234567890', '123123',
+    'abc123', '1234', 'password1', 'iloveyou', '1q2w3e4r',
+    '000000', 'qwerty123', 'zaq12wsx', 'dragon', 'sunshine',
+    'princess', 'letmein', 'welcome', '666666', 'abc123',
+    'football', '1233', 'monkey', '654321', '!@#$%^&*',
+    'charlie', 'aa123456', 'donald', 'password1', 'qwerty123',
+    'qazwsx', 'trustno1', 'jordan23', 'killer', 'welcome1',
+    'jennifer', 'superman', 'hunter', 'freedom', 'andrew',
+    'tigger', 'soccer', 'basketball', 'iloveyou1', '123qwe'
+];
+
+// Utility functions
+function calculateEntropy(password) {
+    let charSet = 0;
+    if (/[a-z]/.test(password)) charSet += 26;
+    if (/[A-Z]/.test(password)) charSet += 26;
+    if (/\d/.test(password)) charSet += 10;
+    if (/[^a-zA-Z0-9]/.test(password)) charSet += 32;
     
-    // State
-    let isPasswordVisible = false;
-    let currentTheme = localStorage.getItem('theme') || 'light';
+    return password.length * Math.log2(charSet || 1);
+}
+
+function updateCrackTime(entropy) {
+    if (!crackTimeElement) return;
     
-    // Initialize the app
-    init();
+    const seconds = Math.pow(2, entropy) / 1000000000; // 1 billion hashes/sec
+    let timeString;
     
-    function init() {
-        // Set initial theme
-        if (currentTheme === 'dark') {
-            document.body.classList.add('dark-theme');
-            const icon = themeToggle?.querySelector('i');
-            if (icon) {
-                icon.classList.remove('fa-moon');
-                icon.classList.add('fa-sun');
-            }
-        }
-        
-        // Event Listeners
-        if (toggleButton) toggleButton.addEventListener('click', togglePasswordVisibility);
-        if (passwordInput) passwordInput.addEventListener('input', analyzePassword);
-        if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
-        
-        // Initial analysis
-        analyzePassword();
+    if (seconds < 1) timeString = 'less than a second';
+    else if (seconds < 60) timeString = `${Math.round(seconds)} seconds`;
+    else if (seconds < 3600) timeString = `${Math.round(seconds / 60)} minutes`;
+    else if (seconds < 86400) timeString = `${Math.round(seconds / 3600)} hours`;
+    else if (seconds < 2592000) timeString = `${Math.round(seconds / 86400)} days`;
+    else if (seconds < 31536000) timeString = `${Math.round(seconds / 2592000)} months`;
+    else timeString = `${Math.round(seconds / 31536000)} years`;
+    
+    crackTimeElement.textContent = timeString;
+}
+
+function updateStrengthMeter(entropy) {
+    const strengthSegments = document.querySelectorAll('.strength-segment');
+    const strengthLabels = document.querySelectorAll('.strength-labels span');
+    
+    // Reset all segments
+    strengthSegments.forEach(segment => {
+        segment.classList.remove('active');
+    });
+    
+    // Determine strength level
+    let strengthLevel = 'weak';
+    if (entropy > 80) strengthLevel = 'excellent';
+    else if (entropy > 60) strengthLevel = 'strong';
+    else if (entropy > 40) strengthLevel = 'medium';
+    
+    // Activate appropriate segment
+    const activeSegment = document.querySelector(`[data-strength="${strengthLevel}"]`);
+    if (activeSegment) {
+        activeSegment.classList.add('active');
     }
     
-    function togglePasswordVisibility() {
-        if (!passwordInput || !toggleButton) return;
-        
-        isPasswordVisible = !isPasswordVisible;
-        passwordInput.type = isPasswordVisible ? 'text' : 'password';
-        
-        // Update the eye icon
-        const eyeIcon = toggleButton.querySelector('i');
-        if (eyeIcon) {
-            eyeIcon.className = isPasswordVisible ? 'fas fa-eye-slash' : 'fas fa-eye';
+    // Update strength text
+    if (strengthText) {
+        const strengthTextSpan = strengthText.querySelector('span');
+        if (strengthTextSpan) {
+            strengthTextSpan.textContent = `Strength: ${strengthLevel.charAt(0).toUpperCase() + strengthLevel.slice(1)}`;
         }
     }
+}
+
+function updateCompositionBars(password) {
+    const compositionBars = document.querySelectorAll('.composition-bar');
     
-    function toggleTheme() {
-        const body = document.body;
+    compositionBars.forEach(bar => {
+        const type = bar.dataset.type;
+        const fill = bar.querySelector('.composition-fill');
+        let count = 0;
+        
+        switch (type) {
+            case 'lowercase':
+                count = (password.match(/[a-z]/g) || []).length;
+                break;
+            case 'uppercase':
+                count = (password.match(/[A-Z]/g) || []).length;
+                break;
+            case 'numbers':
+                count = (password.match(/[0-9]/g) || []).length;
+                break;
+            case 'special':
+                count = (password.match(/[^A-Za-z0-9]/g) || []).length;
+                break;
+        }
+        
+        const percentage = password.length > 0 ? (count / password.length) * 100 : 0;
+        fill.style.width = `${percentage}%`;
+        fill.style.opacity = percentage > 0 ? '1' : '0.3';
+    });
+}
+
+function generateSuggestions(password) {
+    const suggestions = [];
+    
+    if (password.length < 8) {
+        suggestions.push('Use at least 8 characters');
+    }
+    
+    if (!/[a-z]/.test(password)) {
+        suggestions.push('Add lowercase letters (a-z)');
+    }
+    
+    if (!/[A-Z]/.test(password)) {
+        suggestions.push('Add uppercase letters (A-Z)');
+    }
+    
+    if (!/\d/.test(password)) {
+        suggestions.push('Add numbers (0-9)');
+    }
+    
+    if (!/[^a-zA-Z0-9]/.test(password)) {
+        suggestions.push('Add special characters (!@#$%^&*)');
+    }
+    
+    if (password.length < 12) {
+        suggestions.push('Consider using 12+ characters for better security');
+    }
+    
+    // Check for common patterns
+    if (/(.)\1{2,}/.test(password)) {
+        suggestions.push('Avoid repeated characters');
+    }
+    
+    if (/(123|abc|qwe|asd|zxc)/i.test(password)) {
+        suggestions.push('Avoid common keyboard patterns');
+    }
+    
+    if (COMMON_PASSWORDS.includes(password.toLowerCase())) {
+        suggestions.push('This is a very common password - choose something unique');
+    }
+    
+    return suggestions;
+}
+
+function updateSuggestions(password) {
+    if (!suggestionsList) return;
+    
+    if (!password) {
+        suggestionsList.innerHTML = '<li>Enter a password to get suggestions</li>';
+        return;
+    }
+    
+    const suggestions = generateSuggestions(password);
+    
+    if (suggestions.length === 0) {
+        suggestionsList.innerHTML = '<li class="success">Great password! No suggestions needed.</li>';
+    } else {
+        suggestionsList.innerHTML = suggestions.map(suggestion => 
+            `<li><i class="fas fa-exclamation-triangle"></i> ${suggestion}</li>`
+        ).join('');
+    }
+}
+
+function analyzePassword() {
+    const password = passwordInput?.value || '';
+    
+    // Update length
+    if (lengthValueElement) {
+        lengthValueElement.textContent = password.length;
+    }
+    
+    // Calculate and update entropy
+    const entropy = calculateEntropy(password);
+    if (entropyValueElement) {
+        entropyValueElement.textContent = entropy.toFixed(1);
+    }
+    
+    // Update crack time
+    updateCrackTime(entropy);
+    
+    // Update strength meter
+    updateStrengthMeter(entropy);
+    
+    // Update composition bars
+    updateCompositionBars(password);
+    
+    // Update suggestions
+    updateSuggestions(password);
+    
+    // Update charts and compliance checklist
+    updateCharts(password);
+    updateComplianceChecklist(password);
+}
+
+function togglePasswordVisibility() {
+    if (!passwordInput || !toggleButton) return;
+    
+    isPasswordVisible = !isPasswordVisible;
+    passwordInput.type = isPasswordVisible ? 'text' : 'password';
+    
+    // Update the eye icon
+    const eyeIcon = toggleButton.querySelector('i');
+    if (eyeIcon) {
+        eyeIcon.className = isPasswordVisible ? 'fas fa-eye-slash' : 'fas fa-eye';
+    }
+}
+
+function toggleTheme() {
+    currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+    applyTheme();
+}
+
+function applyTheme() {
+    if (currentTheme === 'dark') {
+        document.body.classList.add('dark-theme');
         const icon = themeToggle?.querySelector('i');
-        if (!icon) return;
-        
-        if (currentTheme === 'light') {
-            body.classList.add('dark-theme');
-            icon.className = 'fas fa-sun';
-            currentTheme = 'dark';
-        } else {
-            body.classList.remove('dark-theme');
-            icon.className = 'fas fa-moon';
-            currentTheme = 'light';
-        }
-        localStorage.setItem('theme', currentTheme);
+        if (icon) icon.className = 'fas fa-sun';
+    } else {
+        document.body.classList.remove('dark-theme');
+        const icon = themeToggle?.querySelector('i');
+        if (icon) icon.className = 'fas fa-moon';
+    }
+    localStorage.setItem('theme', currentTheme);
+    
+    // Update chart colors for theme
+    updateChartColors();
+}
+
+function updateChartColors() {
+    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary');
+    const borderColor = getComputedStyle(document.documentElement).getPropertyValue('--border-color');
+    
+    // Update composition chart legend colors
+    if (compositionChart) {
+        compositionChart.options.plugins.legend.labels.color = textColor;
+        compositionChart.update();
     }
     
-    function analyzePassword() {
-        const password = passwordInput?.value || '';
-        const length = password.length;
-        
-        // Update length display
-        if (lengthValueElement) lengthValueElement.textContent = length;
-        
-        if (length === 0) {
-            resetUI();
-            return;
-        }
-        
-        // Calculate password metrics
-        const composition = analyzeComposition(password);
-        const entropyInfo = calculateEntropy(password, composition);
-        const zxcvbnResult = window.zxcvbn ? window.zxcvbn(password) : null;
-        
-        // Update UI
-        updateCompositionBars(composition);
-        updateEntropyDisplay(entropyInfo);
-        updateStrengthMeter(
-            zxcvbnResult?.score || 0, 
-            entropyInfo.bits, 
-            composition
-        );
-        
-        if (zxcvbnResult) {
-            updateCrackTime(zxcvbnResult);
-            updateSuggestions(zxcvbnResult, composition);
-        }
+    // Update strength radar chart colors
+    if (strengthRadarChart) {
+        strengthRadarChart.options.scales.r.ticks.color = textColor;
+        strengthRadarChart.options.scales.r.grid.color = borderColor;
+        strengthRadarChart.options.scales.r.pointLabels.color = textColor;
+        strengthRadarChart.update();
     }
     
-    function analyzeComposition(password) {
-        return {
-            lowercase: (password.match(/[a-z]/g) || []).length,
-            uppercase: (password.match(/[A-Z]/g) || []).length,
-            numbers: (password.match(/[0-9]/g) || []).length,
-            special: (password.match(/[^A-Za-z0-9]/g) || []).length,
-            length: password.length
-        };
+    // Update crack time chart colors
+    if (crackTimeChart) {
+        crackTimeChart.options.scales.y.ticks.color = textColor;
+        crackTimeChart.options.scales.y.grid.color = borderColor;
+        crackTimeChart.options.scales.x.ticks.color = textColor;
+        crackTimeChart.options.scales.x.grid.color = borderColor;
+        crackTimeChart.update();
+    }
+}
+
+function generatePassword(options) {
+    const { length = 16, uppercase = true, lowercase = true, numbers = true, special = true } = options;
+    
+    // Build character set based on options
+    let charset = '';
+    if (lowercase) charset += CHARSETS.lowercase;
+    if (uppercase) charset += CHARSETS.uppercase;
+    if (numbers) charset += CHARSETS.numbers;
+    if (special) charset += CHARSETS.special;
+    
+    // Ensure at least one character set is selected
+    if (!charset) {
+        charset = CHARSETS.lowercase + CHARSETS.uppercase + CHARSETS.numbers + CHARSETS.special;
     }
     
-    function updateCompositionBars(composition) {
-        if (!composition) return;
-        
-        const total = composition.length || 1;
-        
-        ['lowercase', 'uppercase', 'numbers', 'special'].forEach(type => {
-            const count = composition[type] || 0;
-            const percentage = Math.min(100, (count / total) * 100);
-            const fillElement = document.querySelector(`.composition-bar[data-type="${type}"] .composition-fill`);
+    // Generate password
+    let password = '';
+    const crypto = window.crypto || window.msCrypto;
+    const values = new Uint32Array(length);
+    crypto.getRandomValues(values);
+    
+    for (let i = 0; i < length; i++) {
+        const randomIndex = values[i] % charset.length;
+        password += charset[randomIndex];
+    }
+    
+    return password;
+}
+
+function generatePassphrase(options) {
+    const { wordCount = 4, camelCase = false, addNumbers = true } = options;
+    const crypto = window.crypto || window.msCrypto;
+    const values = new Uint32Array(wordCount);
+    crypto.getRandomValues(values);
+    
+    // Generate passphrase words
+    let words = [];
+    for (let i = 0; i < wordCount; i++) {
+        const randomIndex = values[i] % COMMON_WORDS.length;
+        words.push(COMMON_WORDS[randomIndex]);
+    }
+    
+    // Apply formatting
+    let passphrase = '';
+    if (camelCase) {
+        passphrase = words.map((word, index) => 
+            index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)
+        ).join('');
+    } else {
+        passphrase = words.join('-');
+    }
+    
+    // Add numbers if requested
+    if (addNumbers) {
+        const number = Math.floor(Math.random() * 90) + 10; // 10-99
+        passphrase += number;
+    }
+    
+    return passphrase;
+}
+
+function setupTabSwitching() {
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const targetTab = button.dataset.tab;
             
-            if (fillElement) {
-                fillElement.style.width = `${percentage}%`;
-                
-                // Update count display
-                const countElement = fillElement.parentElement.querySelector('.composition-count');
-                if (countElement) {
-                    countElement.textContent = count;
+            // Remove active class from all buttons and contents
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => content.style.display = 'none');
+            
+            // Add active class to clicked button
+            button.classList.add('active');
+            
+            // Show target content
+            const targetContent = document.getElementById(targetTab + 'Tab');
+            if (targetContent) {
+                targetContent.style.display = 'block';
+            }
+        });
+    });
+}
+
+function setupPasswordGeneration() {
+    const generateBtn = document.getElementById('generatePassword');
+    const generatedPassword = document.getElementById('generatedPassword');
+    const copyPassword = document.getElementById('copyPassword');
+    
+    if (generateBtn && generatedPassword) {
+        generateBtn.addEventListener('click', () => {
+            const options = {
+                length: parseInt(document.getElementById('pwLength').value) || 16,
+                uppercase: document.getElementById('useUppercase').checked,
+                lowercase: document.getElementById('useLowercase').checked,
+                numbers: document.getElementById('useNumbers').checked,
+                special: document.getElementById('useSpecial').checked
+            };
+            
+            const password = generatePassword(options);
+            generatedPassword.value = password;
+        });
+    }
+    
+    if (copyPassword && generatedPassword) {
+        copyPassword.addEventListener('click', () => {
+            generatedPassword.select();
+            document.execCommand('copy');
+            copyPassword.innerHTML = '<i class="fas fa-check"></i>';
+            setTimeout(() => {
+                copyPassword.innerHTML = '<i class="far fa-copy"></i>';
+            }, 2000);
+        });
+    }
+}
+
+function setupPassphraseGeneration() {
+    const generateBtn = document.getElementById('generatePassphrase');
+    const generatedPassphrase = document.getElementById('generatedPassphrase');
+    const copyPassphrase = document.getElementById('copyPassphrase');
+    
+    if (generateBtn && generatedPassphrase) {
+        generateBtn.addEventListener('click', () => {
+            const options = {
+                wordCount: parseInt(document.getElementById('wordCount').value) || 4,
+                camelCase: document.getElementById('useCamelCase').checked,
+                addNumbers: document.getElementById('useNumbersInPhrase').checked
+            };
+            
+            const passphrase = generatePassphrase(options);
+            generatedPassphrase.value = passphrase;
+        });
+    }
+    
+    if (copyPassphrase && generatedPassphrase) {
+        copyPassphrase.addEventListener('click', () => {
+            generatedPassphrase.select();
+            document.execCommand('copy');
+            copyPassphrase.innerHTML = '<i class="fas fa-check"></i>';
+            setTimeout(() => {
+                copyPassphrase.innerHTML = '<i class="far fa-copy"></i>';
+            }, 2000);
+        });
+    }
+}
+
+function setupPatternGeneration() {
+    const patternButtons = document.querySelectorAll('.pattern-btn');
+    
+    patternButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const pattern = button.dataset.pattern;
+            let password = '';
+            
+            switch (pattern) {
+                case 'word-number-symbol':
+                    const adjectives = ['Happy', 'Purple', 'Silly', 'Brave', 'Clever'];
+                    const nouns = ['Hippo', 'Dragon', 'Wizard', 'Panda', 'Ninja'];
+                    const symbols = ['!', '@', '#', '$', '%', '^', '&', '*'];
+                    
+                    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+                    const noun = nouns[Math.floor(Math.random() * nouns.length)];
+                    const year = new Date().getFullYear();
+                    const symbol = symbols[Math.floor(Math.random() * symbols.length)];
+                    
+                    password = `${adj}${noun}${year}${symbol}`;
+                    break;
+                    
+                case 'phrase-init':
+                    const phrases = [
+                        'I want to be at New York 2025',
+                        'My dog is the best friend ever',
+                        'The quick brown fox jumps',
+                        'To be or not to be',
+                        'All your base are belong to us'
+                    ];
+                    
+                    const phrase = phrases[Math.floor(Math.random() * phrases.length)];
+                    password = phrase.split(' ')
+                        .map(word => word.charAt(0))
+                        .join('') + (Math.floor(Math.random() * 90) + 10);
+                    break;
+                    
+                case 'keyboard-pattern':
+                    const patterns = [
+                        '1qaz@WSX#EDC',
+                        'zaq1@WSX',
+                        '!QAZ2wsx#EDC',
+                        '1q2w3e4r5t',
+                        'qwerty!@#'
+                    ];
+                    password = patterns[Math.floor(Math.random() * patterns.length)];
+                    break;
+            }
+            
+            if (password) {
+                passwordInput.value = password;
+                analyzePassword();
+            }
+        });
+    });
+}
+
+// Chart creation and management functions
+function createCharts() {
+    // Character Composition Pie Chart
+    const compositionCtx = document.getElementById('compositionChart');
+    if (compositionCtx) {
+        compositionChart = new Chart(compositionCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Lowercase', 'Uppercase', 'Numbers', 'Special'],
+                datasets: [{
+                    data: [0, 0, 0, 0],
+                    backgroundColor: ['#6f42c1', '#20c997', '#fd7e14', '#e83e8c'],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary'),
+                            font: { size: 12 }
+                        }
+                    }
                 }
             }
         });
     }
     
-    function calculateEntropy(password, composition) {
-        if (!password) return { bits: 0, charsetSize: 0, length: 0 };
-        
-        let charsetSize = 0;
-        const hasLower = /[a-z]/.test(password);
-        const hasUpper = /[A-Z]/.test(password);
-        const hasNumbers = /[0-9]/.test(password);
-        const hasSpecial = /[^A-Za-z0-9]/.test(password);
-        
-        // Add character set sizes
-        if (hasLower) charsetSize += 26;
-        if (hasUpper) charsetSize += 26;
-        if (hasNumbers) charsetSize += 10;
-        if (hasSpecial) charsetSize += 32;
-        
-        // Calculate entropy
-        const length = password.length;
-        const bits = Math.round(length * Math.log2(charsetSize) * 10) / 10;
-        
-        return { bits, charsetSize, length };
-    }
-    
-    function updateEntropyDisplay(entropyInfo) {
-        if (!entropyValueElement || !entropyInfo) return;
-        
-        entropyValueElement.textContent = entropyInfo.bits ? entropyInfo.bits.toFixed(1) : '0.0';
-        
-        // Update entropy detail
-        const existingDetail = document.querySelector('.entropy-formula') || document.createElement('span');
-        existingDetail.className = 'entropy-formula';
-        existingDetail.title = `Entropy = Length (${entropyInfo.length}) × log₂(Character Set Size: ${entropyInfo.charsetSize})`;
-        existingDetail.textContent = `(${entropyInfo.length} × log₂${entropyInfo.charsetSize})`;
-        
-        if (!existingDetail.parentNode && entropyValueElement.parentNode) {
-            entropyValueElement.parentNode.insertBefore(existingDetail, entropyValueElement.nextSibling);
-        }
-    }
-    
-    function updateStrengthMeter(score, entropy, composition) {
-        if (!strengthText) return;
-        
-        const strengthSegments = document.querySelectorAll('.strength-segment');
-        let strengthTextContent = '';
-        let strengthIcon = '';
-        let strengthClass = '';
-        
-        // Reset all segments
-        strengthSegments?.forEach(segment => {
-            if (segment?.style) {
-                segment.style.opacity = '0.2';
-                segment.style.animation = 'none';
+    // Strength Score Radar Chart
+    const strengthCtx = document.getElementById('strengthRadarChart');
+    if (strengthCtx) {
+        strengthRadarChart = new Chart(strengthCtx, {
+            type: 'radar',
+            data: {
+                labels: ['Length', 'Complexity', 'Uniqueness', 'Entropy', 'Patterns'],
+                datasets: [{
+                    label: 'Current Score',
+                    data: [0, 0, 0, 0, 0],
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 2,
+                    pointBackgroundColor: 'rgba(54, 162, 235, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(54, 162, 235, 1)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary'),
+                            font: { size: 10 }
+                        },
+                        grid: {
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--border-color')
+                        },
+                        pointLabels: {
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary'),
+                            font: { size: 11 }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
             }
         });
-        
-        // Determine strength
-        if (!composition || composition.length === 0) {
-            strengthTextContent = 'Very Weak';
-            strengthIcon = 'fa-exclamation-circle';
-            strengthClass = 'very-weak';
-        } else if (entropy < 28) {
-            strengthSegments?.[0]?.style?.setProperty('opacity', '1');
-            strengthTextContent = 'Very Weak';
-            strengthIcon = 'fa-exclamation-circle';
-            strengthClass = 'very-weak';
-        } else if (entropy < 36) {
-            strengthSegments?.[0]?.style?.setProperty('opacity', '1');
-            strengthSegments?.[1]?.style?.setProperty('opacity', '1');
-            strengthTextContent = 'Weak';
-            strengthIcon = 'fa-exclamation-triangle';
-            strengthClass = 'weak';
-        } else if (entropy < 60) {
-            strengthSegments?.[0]?.style?.setProperty('opacity', '1');
-            strengthSegments?.[1]?.style?.setProperty('opacity', '1');
-            strengthSegments?.[2]?.style?.setProperty('opacity', '1');
-            strengthTextContent = 'Medium';
-            strengthIcon = 'fa-check-circle';
-            strengthClass = 'medium';
-        } else if (entropy < 128) {
-            strengthSegments?.forEach((seg, i) => {
-                if (i < 4) seg?.style?.setProperty('opacity', '1');
-            });
-            strengthTextContent = 'Strong';
-            strengthIcon = 'fa-shield-alt';
-            strengthClass = 'strong';
-        } else {
-            strengthSegments?.forEach(seg => {
-                seg?.style?.setProperty('opacity', '1');
-                seg?.style?.setProperty('animation', 'pulse 2s infinite');
-            });
-            strengthTextContent = 'Excellent';
-            strengthIcon = 'fa-award';
-            strengthClass = 'excellent';
-        }
-        
-        // Update strength text
-        strengthText.innerHTML = `<i class="fas ${strengthIcon}"></i> <span>Password Strength: <strong class="${strengthClass}">${strengthTextContent}</strong></span>`;
     }
     
-    function updateCrackTime(result) {
-        if (!crackTimeElement || !result?.crack_times_seconds) return;
-        
-        const seconds = result.crack_times_seconds.offline_slow_hashing_1e4_per_second;
-        let timeString;
-        let timeClass = '';
-        
-        if (seconds < 1) {
-            timeString = 'Instant';
-            timeClass = 'instant';
-        } else if (seconds < 60) {
-            timeString = `${Math.ceil(seconds)} seconds`;
-            timeClass = 'very-fast';
-        } else if (seconds < 3600) {
-            const minutes = Math.ceil(seconds / 60);
-            timeString = `${minutes} minute${minutes > 1 ? 's' : ''}`;
-            timeClass = 'fast';
-        } else if (seconds < 86400) {
-            const hours = Math.ceil(seconds / 3600);
-            timeString = `${hours} hour${hours > 1 ? 's' : ''}`;
-            timeClass = 'medium';
-        } else if (seconds < 2592000) {
-            const days = Math.ceil(seconds / 86400);
-            timeString = `${days} day${days > 1 ? 's' : ''}`;
-            timeClass = 'slow';
-        } else if (seconds < 31536000) {
-            const months = Math.ceil(seconds / 2592000);
-            timeString = `${months} month${months > 1 ? 's' : ''}`;
-            timeClass = 'very-slow';
-        } else {
-            const years = Math.ceil(seconds / 31536000);
-            timeString = years > 1000 ? 'Centuries' : `${years} year${years > 1 ? 's' : ''}`;
-            timeClass = 'extremely-slow';
-        }
-        
-        crackTimeElement.textContent = timeString;
-        crackTimeElement.className = `stat-value ${timeClass}`;
-    }
-    
-    function updateSuggestions(result, composition) {
-        if (!suggestionsList) return;
-        
-        const suggestions = [];
-        
-        // Add zxcvbn suggestions
-        if (result?.feedback) {
-            if (result.feedback.warning) {
-                suggestions.push(result.feedback.warning);
+    // Crack Time Comparison Chart
+    const crackTimeCtx = document.getElementById('crackTimeChart');
+    if (crackTimeCtx) {
+        crackTimeChart = new Chart(crackTimeCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Your Password', 'Weak (8 chars)', 'Strong (12 chars)', 'Excellent (16 chars)'],
+                datasets: [{
+                    label: 'Crack Time (seconds)',
+                    data: [0, 0.001, 1, 1000000],
+                    backgroundColor: [
+                        'rgba(54, 162, 235, 0.8)',
+                        'rgba(220, 53, 69, 0.8)',
+                        'rgba(255, 193, 7, 0.8)',
+                        'rgba(40, 167, 69, 0.8)'
+                    ],
+                    borderColor: [
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(220, 53, 69, 1)',
+                        'rgba(255, 193, 7, 1)',
+                        'rgba(40, 167, 69, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        type: 'logarithmic',
+                        beginAtZero: true,
+                        ticks: {
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary'),
+                            font: { size: 10 }
+                        },
+                        grid: {
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--border-color')
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary'),
+                            font: { size: 10 }
+                        },
+                        grid: {
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--border-color')
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
             }
-            if (result.feedback.suggestions?.length > 0) {
-                suggestions.push(...result.feedback.suggestions);
-            }
-        }
-        
-        // Add composition-based suggestions
-        if (composition) {
-            if (composition.length < 12) {
-                suggestions.push('Use at least 12 characters');
-            }
-            if (composition.lowercase === 0) {
-                suggestions.push('Add lowercase letters (a-z)');
-            }
-            if (composition.uppercase === 0) {
-                suggestions.push('Add uppercase letters (A-Z)');
-            }
-            if (composition.numbers === 0) {
-                suggestions.push('Add numbers (0-9)');
-            }
-            if (composition.special === 0) {
-                suggestions.push('Add special characters (!@#$%^&*)');
-            }
-        }
-        
-        // Update the suggestions list
-        if (suggestions.length === 0) {
-            suggestionsList.innerHTML = '<li>Great job! Your password is strong.</li>';
-        } else {
-            suggestionsList.innerHTML = suggestions
-                .map(s => `<li><i class="fas fa-info-circle"></i> ${s}</li>`)
-                .join('');
-        }
-    }
-    
-    function resetUI() {
-        // Reset strength meter
-        document.querySelectorAll('.strength-segment')?.forEach(segment => {
-            segment.style.opacity = '0.2';
-            segment.style.animation = 'none';
         });
-        
-        if (strengthText) {
-            strengthText.innerHTML = '<i class="fas fa-info-circle"></i> <span>Enter a password to check its strength</span>';
+    }
+}
+
+function updateCharts(password) {
+    if (!password) {
+        // Reset charts to empty state
+        if (compositionChart) {
+            compositionChart.data.datasets[0].data = [0, 0, 0, 0];
+            compositionChart.update();
         }
-        
-        // Reset stats
-        if (lengthValueElement) lengthValueElement.textContent = '0';
-        if (crackTimeElement) {
-            crackTimeElement.textContent = 'Instant';
-            crackTimeElement.className = 'stat-value';
+        if (strengthRadarChart) {
+            strengthRadarChart.data.datasets[0].data = [0, 0, 0, 0, 0];
+            strengthRadarChart.update();
         }
+        if (crackTimeChart) {
+            crackTimeChart.data.datasets[0].data[0] = 0;
+            crackTimeChart.update();
+        }
+        return;
+    }
+    
+    // Update Composition Chart
+    if (compositionChart) {
+        const lowercase = (password.match(/[a-z]/g) || []).length;
+        const uppercase = (password.match(/[A-Z]/g) || []).length;
+        const numbers = (password.match(/[0-9]/g) || []).length;
+        const special = (password.match(/[^A-Za-z0-9]/g) || []).length;
         
-        // Reset entropy
-        if (entropyValueElement) entropyValueElement.textContent = '0';
-        document.querySelector('.entropy-formula')?.remove();
+        compositionChart.data.datasets[0].data = [lowercase, uppercase, numbers, special];
+        compositionChart.update();
+    }
+    
+    // Update Strength Radar Chart
+    if (strengthRadarChart) {
+        const length = Math.min(100, (password.length / 16) * 100);
+        const complexity = calculateComplexityScore(password);
+        const uniqueness = calculateUniquenessScore(password);
+        const entropy = Math.min(100, (calculateEntropy(password) / 80) * 100);
+        const patterns = calculatePatternScore(password);
         
-        // Reset composition bars
-        document.querySelectorAll('.composition-fill')?.forEach(fill => {
-            fill.style.width = '0%';
-            const countElement = fill.parentElement.querySelector('.composition-count');
-            if (countElement) countElement.textContent = '0';
+        strengthRadarChart.data.datasets[0].data = [length, complexity, uniqueness, entropy, patterns];
+        strengthRadarChart.update();
+    }
+    
+    // Update Crack Time Chart
+    if (crackTimeChart) {
+        const currentEntropy = calculateEntropy(password);
+        const currentCrackTime = Math.pow(2, currentEntropy) / 1000000000;
+        
+        crackTimeChart.data.datasets[0].data[0] = Math.max(0.001, currentCrackTime);
+        crackTimeChart.update();
+    }
+}
+
+function calculateComplexityScore(password) {
+    let score = 0;
+    if (/[a-z]/.test(password)) score += 25;
+    if (/[A-Z]/.test(password)) score += 25;
+    if (/\d/.test(password)) score += 25;
+    if (/[^a-zA-Z0-9]/.test(password)) score += 25;
+    return score;
+}
+
+function calculateUniquenessScore(password) {
+    const uniqueChars = new Set(password).size;
+    return Math.min(100, (uniqueChars / password.length) * 100);
+}
+
+function calculatePatternScore(password) {
+    let score = 100;
+    
+    // Deduct points for common patterns
+    if (/(.)\1{2,}/.test(password)) score -= 20;
+    if (/(123|abc|qwe|asd|zxc)/i.test(password)) score -= 30;
+    if (COMMON_PASSWORDS.includes(password.toLowerCase())) score -= 50;
+    
+    return Math.max(0, score);
+}
+
+function updateComplianceChecklist(password) {
+    const checklist = document.getElementById('complianceChecklist');
+    if (!checklist) return;
+    
+    const items = checklist.querySelectorAll('.compliance-item');
+    
+    if (!password) {
+        items.forEach(item => {
+            item.className = 'compliance-item';
+            item.querySelector('i').className = 'fas fa-circle';
         });
+        return;
+    }
+    
+    const compliance = {
+        length: password.length >= 8,
+        lowercase: /[a-z]/.test(password),
+        uppercase: /[A-Z]/.test(password),
+        numbers: /\d/.test(password),
+        special: /[^a-zA-Z0-9]/.test(password),
+        noPatterns: !/(.)\1{2,}/.test(password) && !/(123|abc|qwe|asd|zxc)/i.test(password),
+        noPersonal: true, // This would need user input to check properly
+        entropy: calculateEntropy(password) > 60
+    };
+    
+    const complianceTexts = [
+        'Minimum 8 characters',
+        'Contains lowercase letters',
+        'Contains uppercase letters',
+        'Contains numbers',
+        'Contains special characters',
+        'No common patterns',
+        'No personal information',
+        'Entropy > 60 bits'
+    ];
+    
+    items.forEach((item, index) => {
+        const key = Object.keys(compliance)[index];
+        const isCompliant = compliance[key];
         
-        // Reset suggestions
-        if (suggestionsList) {
-            suggestionsList.innerHTML = '<li>Enter a password to get suggestions</li>';
+        item.className = `compliance-item ${isCompliant ? 'compliant' : 'non-compliant'}`;
+        const icon = item.querySelector('i');
+        icon.className = isCompliant ? 'fas fa-check-circle' : 'fas fa-times-circle';
+        
+        // Add warning for some items
+        if (key === 'length' && password.length >= 6 && password.length < 8) {
+            item.className = 'compliance-item warning';
+            icon.className = 'fas fa-exclamation-circle';
         }
+    });
+}
+
+// Initialize the app when the DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize DOM elements
+    passwordInput = document.getElementById('passwordInput');
+    toggleButton = document.getElementById('toggleVisibility');
+    suggestButton = document.getElementById('suggestPassword');
+    strengthText = document.getElementById('strengthText');
+    crackTimeElement = document.getElementById('crackTime');
+    lengthValueElement = document.getElementById('lengthValue');
+    entropyValueElement = document.getElementById('entropyValue');
+    suggestionsList = document.getElementById('suggestionsList');
+    themeToggle = document.getElementById('themeToggle');
+    suggestionPanel = document.getElementById('suggestionPanel');
+
+    // Set up event listeners
+    if (passwordInput) passwordInput.addEventListener('input', analyzePassword);
+    if (toggleButton) toggleButton.addEventListener('click', togglePasswordVisibility);
+    if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
+    
+    // Suggestion panel toggle
+    if (suggestButton && suggestionPanel) {
+        suggestButton.addEventListener('click', () => {
+            suggestionPanel.style.display = 
+                suggestionPanel.style.display === 'none' ? 'block' : 'none';
+        });
+    }
+    
+    // Setup additional functionality
+    setupTabSwitching();
+    setupPasswordGeneration();
+    setupPassphraseGeneration();
+    setupPatternGeneration();
+    
+    // Create charts
+    createCharts();
+    
+    // Apply saved theme
+    applyTheme();
+    
+    // Initial analysis if there's a password
+    if (passwordInput && passwordInput.value) {
+        analyzePassword();
     }
 });

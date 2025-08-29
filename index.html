@@ -10,6 +10,8 @@
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Chart.js for visual analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="light-theme">
     <div class="theme-toggle" id="themeToggle">
@@ -24,10 +26,20 @@
         
         <div class="password-card">
             <div class="password-input-container">
+                <div class="personal-info-fields">
+                    <input type="text" id="firstName" placeholder="First name (optional)" autocomplete="given-name">
+                    <input type="text" id="lastName" placeholder="Last name (optional)" autocomplete="family-name">
+                    <input type="text" id="username" placeholder="Username/Email (optional)" autocomplete="username">
+                    <input type="text" id="birthDate" placeholder="Birth date (optional)" autocomplete="bday">
+                    <input type="tel" id="phoneNumber" placeholder="Phone number (optional)" autocomplete="tel">
+                </div>
                 <div class="password-field">
-                    <input type="password" id="passwordInput" placeholder="Type your password here..." autocomplete="off">
+                    <input type="password" id="passwordInput" placeholder="Type your password here..." autocomplete="new-password">
                     <button id="toggleVisibility" class="toggle-btn" aria-label="Toggle password visibility">
                         <i class="fas fa-eye"></i>
+                    </button>
+                    <button id="suggestPassword" class="suggest-btn" aria-label="Get password suggestions">
+                        <i class="fas fa-lightbulb"></i> Suggestions
                     </button>
                 </div>
                 
@@ -67,6 +79,70 @@
                 </div>
             </div>
             
+            <!-- Password Suggestion Panel -->
+            <div class="suggestion-panel" id="suggestionPanel" style="display: none;">
+                <div class="suggestion-tabs">
+                    <button class="tab-btn active" data-tab="suggestions">Suggestions</button>
+                    <button class="tab-btn" data-tab="generator">Generate</button>
+                    <button class="tab-btn" data-tab="passphrase">Passphrase</button>
+                    <button class="tab-btn" data-tab="patterns">Patterns</button>
+                </div>
+                
+                <div class="tab-content" id="suggestionsTab">
+                    <h3>Improve Your Password</h3>
+                    <ul id="suggestionsList" class="suggestions-list"></ul>
+                </div>
+                
+                <div class="tab-content" id="generatorTab" style="display: none;">
+                    <h3>Generate Strong Password</h3>
+                    <div class="password-options">
+                        <label><input type="number" id="pwLength" min="8" max="64" value="16"> Length</label>
+                        <label><input type="checkbox" id="useUppercase" checked> Uppercase (A-Z)</label>
+                        <label><input type="checkbox" id="useLowercase" checked> Lowercase (a-z)</label>
+                        <label><input type="checkbox" id="useNumbers" checked> Numbers (0-9)</label>
+                        <label><input type="checkbox" id="useSpecial" checked> Special (!@#$%^&*)</label>
+                        <button id="generatePassword" class="generate-btn">Generate</button>
+                    </div>
+                    <div class="generated-password">
+                        <input type="text" id="generatedPassword" readonly>
+                        <button id="copyPassword" class="copy-btn" title="Copy to clipboard">
+                            <i class="far fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="passphraseTab" style="display: none;">
+                    <h3>Generate Passphrase</h3>
+                    <div class="passphrase-options">
+                        <label>Words: <input type="number" id="wordCount" min="3" max="10" value="4"></label>
+                        <label><input type="checkbox" id="useCamelCase"> CamelCase</label>
+                        <label><input type="checkbox" id="useNumbersInPhrase" checked> Add Numbers</label>
+                        <button id="generatePassphrase" class="generate-btn">Generate Passphrase</button>
+                    </div>
+                    <div class="generated-passphrase">
+                        <input type="text" id="generatedPassphrase" readonly>
+                        <button id="copyPassphrase" class="copy-btn" title="Copy to clipboard">
+                            <i class="far fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="patternsTab" style="display: none;">
+                    <h3>Memorable Password Patterns</h3>
+                    <div class="pattern-options">
+                        <button class="pattern-btn" data-pattern="word-number-symbol">Word + Year + !</button>
+                        <button class="pattern-btn" data-pattern="phrase-init">First Letters of Phrase</button>
+                        <button class="pattern-btn" data-pattern="keyboard-pattern">Keyboard Pattern</button>
+                    </div>
+                    <div class="pattern-examples">
+                        <h4>Examples:</h4>
+                        <p>• <code>PurpleHippo2023!</code> (Word + Year + !)</p>
+                        <p>• <code>Iw2b@NY2025</code> (I want to be at New York 2025)</p>
+                        <p>• <code>1qaz@WSX#EDC</code> (Keyboard pattern)</p>
+                    </div>
+                </div>
+            </div>
+            
             <div class="composition-container">
                 <h3>Character Composition</h3>
                 <div class="composition-bars">
@@ -94,6 +170,76 @@
                 <ul class="suggestions-list" id="suggestionsList">
                     <li>Enter a password to get suggestions</li>
                 </ul>
+            </div>
+        </div>
+        
+        <!-- Visual Analytics Section -->
+        <div class="analytics-section">
+            <h3><i class="fas fa-chart-line"></i> Visual Analytics</h3>
+            
+            <div class="analytics-grid">
+                <!-- Character Composition Pie Chart -->
+                <div class="chart-card">
+                    <h4><i class="fas fa-chart-pie"></i> Character Composition</h4>
+                    <div class="chart-container">
+                        <canvas id="compositionChart" width="300" height="300"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Strength Score Radar Chart -->
+                <div class="chart-card">
+                    <h4><i class="fas fa-chart-radar"></i> Strength Score</h4>
+                    <div class="chart-container">
+                        <canvas id="strengthRadarChart" width="300" height="300"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Crack Time Comparison -->
+                <div class="chart-card">
+                    <h4><i class="fas fa-chart-bar"></i> Crack Time Comparison</h4>
+                    <div class="chart-container">
+                        <canvas id="crackTimeChart" width="300" height="300"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Password Policy Compliance -->
+                <div class="chart-card">
+                    <h4><i class="fas fa-clipboard-check"></i> Policy Compliance</h4>
+                    <div class="compliance-checklist" id="complianceChecklist">
+                        <div class="compliance-item">
+                            <i class="fas fa-circle"></i>
+                            <span>Minimum 8 characters</span>
+                        </div>
+                        <div class="compliance-item">
+                            <i class="fas fa-circle"></i>
+                            <span>Contains lowercase letters</span>
+                        </div>
+                        <div class="compliance-item">
+                            <i class="fas fa-circle"></i>
+                            <span>Contains uppercase letters</span>
+                        </div>
+                        <div class="compliance-item">
+                            <i class="fas fa-circle"></i>
+                            <span>Contains numbers</span>
+                        </div>
+                        <div class="compliance-item">
+                            <i class="fas fa-circle"></i>
+                            <span>Contains special characters</span>
+                        </div>
+                        <div class="compliance-item">
+                            <i class="fas fa-circle"></i>
+                            <span>No common patterns</span>
+                        </div>
+                        <div class="compliance-item">
+                            <i class="fas fa-circle"></i>
+                            <span>No personal information</span>
+                        </div>
+                        <div class="compliance-item">
+                            <i class="fas fa-circle"></i>
+                            <span>Entropy > 60 bits</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         
