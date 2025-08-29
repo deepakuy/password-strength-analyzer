@@ -10,6 +10,10 @@ let currentTheme = localStorage.getItem('theme') || 'light';
 // Chart instances
 let compositionChart, strengthRadarChart, crackTimeChart;
 
+// Report and score card elements
+let overallScoreElement, scoreGradeElement, lengthScoreElement, complexityScoreElement, 
+    uniquenessScoreElement, securityScoreElement;
+
 // Character sets for password generation
 const CHARSETS = {
     lowercase: 'abcdefghijklmnopqrstuvwxyz',
@@ -218,6 +222,9 @@ function analyzePassword() {
     // Update charts and compliance checklist
     updateCharts(password);
     updateComplianceChecklist(password);
+    
+    // Update security score card
+    updateSecurityScoreCard(password);
 }
 
 function togglePasswordVisibility() {
@@ -754,6 +761,613 @@ function updateComplianceChecklist(password) {
     });
 }
 
+// Security Score Card Functions
+function updateSecurityScoreCard(password) {
+    if (!password) {
+        resetSecurityScoreCard();
+        return;
+    }
+    
+    const scores = calculateSecurityScores(password);
+    updateScoreDisplay(scores);
+}
+
+function calculateSecurityScores(password) {
+    // Length score (0-25 points)
+    const lengthScore = Math.min(25, Math.max(0, (password.length / 16) * 25));
+    
+    // Complexity score (0-25 points)
+    let complexityScore = 0;
+    if (/[a-z]/.test(password)) complexityScore += 6.25;
+    if (/[A-Z]/.test(password)) complexityScore += 6.25;
+    if (/\d/.test(password)) complexityScore += 6.25;
+    if (/[^a-zA-Z0-9]/.test(password)) complexityScore += 6.25;
+    
+    // Uniqueness score (0-25 points)
+    const uniqueChars = new Set(password).size;
+    const uniquenessScore = Math.min(25, (uniqueChars / password.length) * 25);
+    
+    // Security score (0-25 points)
+    let securityScore = 25;
+    if (/(.)\1{2,}/.test(password)) securityScore -= 5;
+    if (/(123|abc|qwe|asd|zxc)/i.test(password)) securityScore -= 8;
+    if (COMMON_PASSWORDS.includes(password.toLowerCase())) securityScore -= 15;
+    if (password.length < 8) securityScore -= 10;
+    
+    return {
+        length: Math.round(lengthScore),
+        complexity: Math.round(complexityScore),
+        uniqueness: Math.round(uniquenessScore),
+        security: Math.max(0, Math.round(securityScore)),
+        total: Math.round(lengthScore + complexityScore + uniquenessScore + Math.max(0, securityScore))
+    };
+}
+
+function updateScoreDisplay(scores) {
+    if (overallScoreElement) {
+        overallScoreElement.textContent = scores.total;
+    }
+    
+    if (scoreGradeElement) {
+        scoreGradeElement.textContent = getScoreGrade(scores.total);
+    }
+    
+    // Update individual score bars
+    updateScoreBar('lengthScore', scores.length);
+    updateScoreBar('complexityScore', scores.complexity);
+    updateScoreBar('uniquenessScore', scores.uniqueness);
+    updateScoreBar('securityScore', scores.security);
+    
+    // Update score values
+    if (lengthScoreElement) lengthScoreElement.textContent = scores.length;
+    if (complexityScoreElement) complexityScoreElement.textContent = scores.complexity;
+    if (uniquenessScoreElement) uniquenessScoreElement.textContent = scores.uniqueness;
+    if (securityScoreElement) securityScoreElement.textContent = scores.security;
+}
+
+function updateScoreBar(elementId, score) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.style.width = `${score}%`;
+    }
+}
+
+function getScoreGrade(score) {
+    if (score >= 90) return 'A+';
+    if (score >= 80) return 'A';
+    if (score >= 70) return 'B+';
+    if (score >= 60) return 'B';
+    if (score >= 50) return 'C+';
+    if (score >= 40) return 'C';
+    if (score >= 30) return 'D+';
+    if (score >= 20) return 'D';
+    return 'F';
+}
+
+function resetSecurityScoreCard() {
+    if (overallScoreElement) overallScoreElement.textContent = '0';
+    if (scoreGradeElement) scoreGradeElement.textContent = 'F';
+    
+    ['lengthScore', 'complexityScore', 'uniquenessScore', 'securityScore'].forEach(id => {
+        updateScoreBar(id, 0);
+    });
+    
+    if (lengthScoreElement) lengthScoreElement.textContent = '0';
+    if (complexityScoreElement) complexityScoreElement.textContent = '0';
+    if (uniquenessScoreElement) uniquenessScoreElement.textContent = '0';
+    if (securityScoreElement) securityScoreElement.textContent = '0';
+}
+
+// PDF Report Generation
+function generatePDFReport() {
+    const password = passwordInput?.value || '';
+    if (!password) {
+        alert('Please enter a password first to generate a report.');
+        return;
+    }
+    
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Get report options
+    const includeCharts = document.getElementById('includeCharts')?.checked || false;
+    const includeCompliance = document.getElementById('includeCompliance')?.checked || false;
+    const includeRecommendations = document.getElementById('includeRecommendations')?.checked || false;
+    const includePolicyTemplate = document.getElementById('includePolicyTemplate')?.checked || false;
+    
+    // Report header
+    doc.setFontSize(24);
+    doc.setTextColor(44, 62, 80);
+    doc.text('Password Security Analysis Report', 20, 30);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(108, 117, 125);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 45);
+    doc.text(`Password analyzed: ${'*'.repeat(password.length)}`, 20, 55);
+    
+    let yPosition = 75;
+    
+    // Password statistics
+    doc.setFontSize(16);
+    doc.setTextColor(44, 62, 80);
+    doc.text('Password Statistics', 20, yPosition);
+    yPosition += 15;
+    
+    doc.setFontSize(10);
+    doc.setTextColor(108, 117, 125);
+    const entropy = calculateEntropy(password);
+    const scores = calculateSecurityScores(password);
+    
+    const stats = [
+        ['Length', password.length.toString()],
+        ['Entropy', `${entropy.toFixed(1)} bits`],
+        ['Overall Score', `${scores.total}/100`],
+        ['Grade', getScoreGrade(scores.total)]
+    ];
+    
+    doc.autoTable({
+        startY: yPosition,
+        head: [['Metric', 'Value']],
+        body: stats,
+        theme: 'grid',
+        headStyles: { fillColor: [44, 62, 80] },
+        styles: { fontSize: 10 }
+    });
+    
+    yPosition = doc.lastAutoTable.finalY + 20;
+    
+    // Security scores breakdown
+    if (includeCompliance) {
+        doc.setFontSize(16);
+        doc.setTextColor(44, 62, 80);
+        doc.text('Security Score Breakdown', 20, yPosition);
+        yPosition += 15;
+        
+        const scoreBreakdown = [
+            ['Length', scores.length, '25'],
+            ['Complexity', scores.complexity, '25'],
+            ['Uniqueness', scores.uniqueness, '25'],
+            ['Security', scores.security, '25']
+        ];
+        
+        doc.autoTable({
+            startY: yPosition,
+            head: [['Category', 'Score', 'Max']],
+            body: scoreBreakdown,
+            theme: 'grid',
+            headStyles: { fillColor: [44, 62, 80] },
+            styles: { fontSize: 10 }
+        });
+        
+        yPosition = doc.lastAutoTable.finalY + 20;
+    }
+    
+    // Character composition
+    doc.setFontSize(16);
+    doc.setTextColor(44, 62, 80);
+    doc.text('Character Composition', 20, yPosition);
+    yPosition += 15;
+    
+    const composition = [
+        ['Lowercase', (password.match(/[a-z]/g) || []).length],
+        ['Uppercase', (password.match(/[A-Z]/g) || []).length],
+        ['Numbers', (password.match(/[0-9]/g) || []).length],
+        ['Special', (password.match(/[^A-Za-z0-9]/g) || []).length]
+    ];
+    
+    doc.autoTable({
+        startY: yPosition,
+        head: [['Type', 'Count']],
+        body: composition,
+        theme: 'grid',
+        headStyles: { fillColor: [44, 62, 80] },
+        styles: { fontSize: 10 }
+    });
+    
+    yPosition = doc.lastAutoTable.finalY + 20;
+    
+    // Recommendations
+    if (includeRecommendations) {
+        doc.setFontSize(16);
+        doc.setTextColor(44, 62, 80);
+        doc.text('Security Recommendations', 20, yPosition);
+        yPosition += 15;
+        
+        const suggestions = generateSuggestions(password);
+        if (suggestions.length > 0) {
+            suggestions.forEach((suggestion, index) => {
+                if (yPosition > 250) {
+                    doc.addPage();
+                    yPosition = 20;
+                }
+                doc.setFontSize(10);
+                doc.setTextColor(108, 117, 125);
+                doc.text(`• ${suggestion}`, 25, yPosition);
+                yPosition += 8;
+            });
+        } else {
+            doc.setFontSize(10);
+            doc.setTextColor(40, 167, 69);
+            doc.text('✓ Excellent password! No recommendations needed.', 25, yPosition);
+            yPosition += 15;
+        }
+        
+        yPosition += 10;
+    }
+    
+    // Policy template
+    if (includePolicyTemplate) {
+        if (yPosition > 200) {
+            doc.addPage();
+            yPosition = 20;
+        }
+        
+        doc.setFontSize(16);
+        doc.setTextColor(44, 62, 80);
+        doc.text('Recommended Password Policy', 20, yPosition);
+        yPosition += 15;
+        
+        const policyItems = [
+            'Minimum 12 characters',
+            'Include uppercase and lowercase letters',
+            'Include numbers and special characters',
+            'Avoid common patterns and words',
+            'No personal information',
+            'Regular password rotation',
+            'Unique passwords for each account'
+        ];
+        
+        policyItems.forEach(item => {
+            if (yPosition > 250) {
+                doc.addPage();
+                yPosition = 20;
+            }
+            doc.setFontSize(10);
+            doc.setTextColor(108, 117, 125);
+            doc.text(`• ${item}`, 25, yPosition);
+            yPosition += 8;
+        });
+    }
+    
+    // Footer
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(108, 117, 125);
+        doc.text(`Page ${i} of ${pageCount}`, 20, doc.internal.pageSize.height - 10);
+        doc.text('Generated by Password Strength Analyzer', doc.internal.pageSize.width - 20, doc.internal.pageSize.height - 10, { align: 'right' });
+    }
+    
+    // Save the PDF
+    const filename = `password-security-report-${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(filename);
+}
+
+// Export Functions
+function exportAsCSV() {
+    const password = passwordInput?.value || '';
+    if (!password) {
+        alert('Please enter a password first to export data.');
+        return;
+    }
+    
+    const entropy = calculateEntropy(password);
+    const scores = calculateSecurityScores(password);
+    const composition = {
+        lowercase: (password.match(/[a-z]/g) || []).length,
+        uppercase: (password.match(/[A-Z]/g) || []).length,
+        numbers: (password.match(/[0-9]/g) || []).length,
+        special: (password.match(/[^A-Za-z0-9]/g) || []).length
+    };
+    
+    const csvContent = [
+        'Metric,Value',
+        `Length,${password.length}`,
+        `Entropy,${entropy.toFixed(1)}`,
+        `Overall Score,${scores.total}`,
+        `Grade,${getScoreGrade(scores.total)}`,
+        `Length Score,${scores.length}`,
+        `Complexity Score,${scores.complexity}`,
+        `Uniqueness Score,${scores.uniqueness}`,
+        `Security Score,${scores.security}`,
+        `Lowercase Characters,${composition.lowercase}`,
+        `Uppercase Characters,${composition.uppercase}`,
+        `Numbers,${composition.numbers}`,
+        `Special Characters,${composition.special}`
+    ].join('\n');
+    
+    downloadFile(csvContent, 'password-analysis.csv', 'text/csv');
+}
+
+function exportAsJSON() {
+    const password = passwordInput?.value || '';
+    if (!password) {
+        alert('Please enter a password first to export data.');
+        return;
+    }
+    
+    const entropy = calculateEntropy(password);
+    const scores = calculateSecurityScores(password);
+    const composition = {
+        lowercase: (password.match(/[a-z]/g) || []).length,
+        uppercase: (password.match(/[A-Z]/g) || []).length,
+        numbers: (password.match(/[0-9]/g) || []).length,
+        special: (password.match(/[^A-Za-z0-9]/g) || []).length
+    };
+    
+    const data = {
+        timestamp: new Date().toISOString(),
+        password: '*'.repeat(password.length),
+        analysis: {
+            length: password.length,
+            entropy: parseFloat(entropy.toFixed(1)),
+            overallScore: scores.total,
+            grade: getScoreGrade(scores.total),
+            scores: scores,
+            composition: composition,
+            crackTime: updateCrackTime(entropy),
+            suggestions: generateSuggestions(password)
+        }
+    };
+    
+    const jsonContent = JSON.stringify(data, null, 2);
+    downloadFile(jsonContent, 'password-analysis.json', 'application/json');
+}
+
+function exportAsHTML() {
+    const password = passwordInput?.value || '';
+    if (!password) {
+        alert('Please enter a password first to export data.');
+        return;
+    }
+    
+    const entropy = calculateEntropy(password);
+    const scores = calculateSecurityScores(password);
+    
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Security Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .section { margin: 20px 0; }
+        .score { font-size: 24px; font-weight: bold; color: #28a745; }
+        .grade { font-size: 48px; font-weight: bold; color: #007bff; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Password Security Report</h1>
+        <p>Generated on: ${new Date().toLocaleDateString()}</p>
+    </div>
+    
+    <div class="section">
+        <h2>Summary</h2>
+        <p><strong>Overall Score:</strong> <span class="score">${scores.total}/100</span></p>
+        <p><strong>Grade:</strong> <span class="grade">${getScoreGrade(scores.total)}</span></p>
+        <p><strong>Entropy:</strong> ${entropy.toFixed(1)} bits</p>
+    </div>
+    
+    <div class="section">
+        <h2>Detailed Scores</h2>
+        <table>
+            <tr><th>Category</th><th>Score</th><th>Max</th></tr>
+            <tr><td>Length</td><td>${scores.length}</td><td>25</td></tr>
+            <tr><td>Complexity</td><td>${scores.complexity}</td><td>25</td></tr>
+            <tr><td>Uniqueness</td><td>${scores.uniqueness}</td><td>25</td></tr>
+            <tr><td>Security</td><td>${scores.security}</td><td>25</td></tr>
+        </table>
+    </div>
+    
+    <div class="section">
+        <h2>Recommendations</h2>
+        <ul>
+            ${generateSuggestions(password).map(s => `<li>${s}</li>`).join('')}
+        </ul>
+    </div>
+</body>
+</html>`;
+    
+    downloadFile(htmlContent, 'password-analysis.html', 'text/html');
+}
+
+function copyToClipboard() {
+    const password = passwordInput?.value || '';
+    if (!password) {
+        alert('Please enter a password first to copy data.');
+        return;
+    }
+    
+    const entropy = calculateEntropy(password);
+    const scores = calculateSecurityScores(password);
+    
+    const summary = `Password Security Summary:
+Overall Score: ${scores.total}/100
+Grade: ${getScoreGrade(scores.total)}
+Length: ${password.length} characters
+Entropy: ${entropy.toFixed(1)} bits
+Length Score: ${scores.length}/25
+Complexity Score: ${scores.complexity}/25
+Uniqueness Score: ${scores.uniqueness}/25
+Security Score: ${scores.security}/25
+
+Generated by Password Strength Analyzer`;
+    
+    navigator.clipboard.writeText(summary).then(() => {
+        alert('Security summary copied to clipboard!');
+    }).catch(() => {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = summary;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        alert('Security summary copied to clipboard!');
+    });
+}
+
+function downloadFile(content, filename, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+// Policy Template Functions
+function applyPolicyTemplate(policyType) {
+    const policies = {
+        basic: {
+            minLength: 8,
+            requireLowercase: true,
+            requireUppercase: false,
+            requireNumbers: true,
+            requireSpecial: false,
+            maxAge: 90,
+            preventReuse: 5
+        },
+        enhanced: {
+            minLength: 12,
+            requireLowercase: true,
+            requireUppercase: true,
+            requireNumbers: true,
+            requireSpecial: true,
+            maxAge: 60,
+            preventReuse: 10
+        },
+        enterprise: {
+            minLength: 16,
+            requireLowercase: true,
+            requireUppercase: true,
+            requireNumbers: true,
+            requireSpecial: true,
+            maxAge: 45,
+            preventReuse: 15
+        }
+    };
+    
+    const policy = policies[policyType];
+    if (policy) {
+        // Create policy display
+        const policyDisplay = `
+Password Policy Template: ${policyType.charAt(0).toUpperCase() + policyType.slice(1)} Security
+
+Requirements:
+• Minimum length: ${policy.minLength} characters
+• Lowercase letters: ${policy.requireLowercase ? 'Required' : 'Optional'}
+• Uppercase letters: ${policy.requireUppercase ? 'Required' : 'Optional'}
+• Numbers: ${policy.requireNumbers ? 'Required' : 'Optional'}
+• Special characters: ${policy.requireSpecial ? 'Required' : 'Optional'}
+
+Management:
+• Maximum age: ${policy.maxAge} days
+• Prevent reuse of last ${policy.preventReuse} passwords
+
+This policy provides ${policyType === 'basic' ? 'basic' : policyType === 'enhanced' ? 'enhanced' : 'enterprise-level'} security suitable for ${policyType === 'basic' ? 'personal accounts' : policyType === 'enhanced' ? 'business applications' : 'high-security environments'}.
+        `;
+        
+        // Copy to clipboard
+        navigator.clipboard.writeText(policyDisplay).then(() => {
+            alert(`${policyType.charAt(0).toUpperCase() + policyType.slice(1)} policy template copied to clipboard!`);
+        }).catch(() => {
+            alert(policyDisplay);
+        });
+    }
+}
+
+function setupReportFunctionality() {
+    // PDF Report Generation
+    const generatePDFBtn = document.getElementById('generatePDFReport');
+    if (generatePDFBtn) {
+        generatePDFBtn.addEventListener('click', generatePDFReport);
+    }
+    
+    // Export Functions
+    const exportCSVBtn = document.getElementById('exportCSV');
+    if (exportCSVBtn) {
+        exportCSVBtn.addEventListener('click', exportAsCSV);
+    }
+    
+    const exportJSONBtn = document.getElementById('exportJSON');
+    if (exportJSONBtn) {
+        exportJSONBtn.addEventListener('click', exportAsJSON);
+    }
+    
+    const exportHTMLBtn = document.getElementById('exportHTML');
+    if (exportHTMLBtn) {
+        exportHTMLBtn.addEventListener('click', exportAsHTML);
+    }
+    
+    const copyToClipboardBtn = document.getElementById('copyToClipboard');
+    if (copyToClipboardBtn) {
+        copyToClipboardBtn.addEventListener('click', copyToClipboard);
+    }
+    
+    // Share Score Card
+    const shareScoreCardBtn = document.getElementById('shareScoreCard');
+    if (shareScoreCardBtn) {
+        shareScoreCardBtn.addEventListener('click', () => {
+            const password = passwordInput?.value || '';
+            if (!password) {
+                alert('Please enter a password first to share the score card.');
+                return;
+            }
+            
+            const scores = calculateSecurityScores(password);
+            const summary = `🔒 Password Security Score Card
+            
+📊 Overall Score: ${scores.total}/100
+🏆 Grade: ${getScoreGrade(scores.total)}
+📏 Length: ${password.length} characters
+🔐 Entropy: ${calculateEntropy(password).toFixed(1)} bits
+
+📈 Breakdown:
+• Length: ${scores.length}/25
+• Complexity: ${scores.complexity}/25
+• Uniqueness: ${scores.uniqueness}/25
+• Security: ${scores.security}/25
+
+Generated by Password Strength Analyzer 🔐`;
+            
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Password Security Score Card',
+                    text: summary,
+                    url: window.location.href
+                });
+            } else {
+                navigator.clipboard.writeText(summary).then(() => {
+                    alert('Score card copied to clipboard! Share it with others to show your password security.');
+                }).catch(() => {
+                    alert(summary);
+                });
+            }
+        });
+    }
+    
+    // Policy Template Buttons
+    const templateBtns = document.querySelectorAll('.template-btn');
+    templateBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const policyType = btn.dataset.policy;
+            applyPolicyTemplate(policyType);
+        });
+    });
+}
+
 // Initialize the app when the DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize DOM elements
@@ -767,6 +1381,14 @@ document.addEventListener('DOMContentLoaded', function() {
     suggestionsList = document.getElementById('suggestionsList');
     themeToggle = document.getElementById('themeToggle');
     suggestionPanel = document.getElementById('suggestionPanel');
+    
+    // Initialize report and score card elements
+    overallScoreElement = document.getElementById('overallScore');
+    scoreGradeElement = document.getElementById('scoreGrade');
+    lengthScoreElement = document.getElementById('lengthScoreValue');
+    complexityScoreElement = document.getElementById('complexityScoreValue');
+    uniquenessScoreElement = document.getElementById('uniquenessScoreValue');
+    securityScoreElement = document.getElementById('securityScoreValue');
 
     // Set up event listeners
     if (passwordInput) passwordInput.addEventListener('input', analyzePassword);
@@ -789,6 +1411,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Create charts
     createCharts();
+    
+    // Setup report functionality
+    setupReportFunctionality();
     
     // Apply saved theme
     applyTheme();

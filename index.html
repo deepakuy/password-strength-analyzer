@@ -12,6 +12,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <!-- Chart.js for visual analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body class="light-theme">
     <div class="theme-toggle" id="themeToggle">
@@ -238,6 +241,128 @@
                             <i class="fas fa-circle"></i>
                             <span>Entropy > 60 bits</span>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Reports & Security Score Cards Section -->
+        <div class="reports-section">
+            <h3><i class="fas fa-file-pdf"></i> Reports & Security Score Cards</h3>
+            
+            <div class="reports-grid">
+                <!-- PDF Report Generator -->
+                <div class="report-card">
+                    <h4><i class="fas fa-download"></i> Generate PDF Report</h4>
+                    <p>Create a comprehensive security analysis report with detailed recommendations.</p>
+                    <div class="report-options">
+                        <label><input type="checkbox" id="includeCharts" checked> Include Charts</label>
+                        <label><input type="checkbox" id="includeCompliance" checked> Include Compliance</label>
+                        <label><input type="checkbox" id="includeRecommendations" checked> Include Recommendations</label>
+                        <label><input type="checkbox" id="includePolicyTemplate" checked> Include Policy Template</label>
+                    </div>
+                    <button id="generatePDFReport" class="report-btn primary">
+                        <i class="fas fa-file-pdf"></i> Generate PDF Report
+                    </button>
+                </div>
+                
+                <!-- Security Score Card -->
+                <div class="report-card">
+                    <h4><i class="fas fa-medal"></i> Security Score Card</h4>
+                    <div class="score-card" id="scoreCard">
+                        <div class="score-header">
+                            <div class="score-circle">
+                                <span id="overallScore">0</span>
+                                <small>/100</small>
+                            </div>
+                            <div class="score-grade" id="scoreGrade">F</div>
+                        </div>
+                        <div class="score-breakdown">
+                            <div class="score-item">
+                                <span>Length</span>
+                                <div class="score-bar">
+                                    <div class="score-fill" id="lengthScore"></div>
+                                </div>
+                                <span id="lengthScoreValue">0</span>
+                            </div>
+                            <div class="score-item">
+                                <span>Complexity</span>
+                                <div class="score-bar">
+                                    <div class="score-fill" id="complexityScore"></div>
+                                </div>
+                                <span id="complexityScoreValue">0</span>
+                            </div>
+                            <div class="score-item">
+                                <span>Uniqueness</span>
+                                <div class="score-bar">
+                                    <div class="score-fill" id="uniquenessScore"></div>
+                                </div>
+                                <span id="uniquenessScoreValue">0</span>
+                            </div>
+                            <div class="score-item">
+                                <span>Security</span>
+                                <div class="score-bar">
+                                    <div class="score-fill" id="securityScore"></div>
+                                </div>
+                                <span id="securityScoreValue">0</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="shareScoreCard" class="report-btn secondary">
+                        <i class="fas fa-share-alt"></i> Share Score Card
+                    </button>
+                </div>
+                
+                <!-- Password Policy Templates -->
+                <div class="report-card">
+                    <h4><i class="fas fa-clipboard-list"></i> Policy Templates</h4>
+                    <div class="policy-templates">
+                        <div class="policy-template">
+                            <h5>Basic Security</h5>
+                            <ul>
+                                <li>Minimum 8 characters</li>
+                                <li>Mix of letters and numbers</li>
+                                <li>No common words</li>
+                            </ul>
+                            <button class="template-btn" data-policy="basic">Use Template</button>
+                        </div>
+                        <div class="policy-template">
+                            <h5>Enhanced Security</h5>
+                            <ul>
+                                <li>Minimum 12 characters</li>
+                                <li>Uppercase, lowercase, numbers, symbols</li>
+                                <li>No patterns or personal info</li>
+                            </ul>
+                            <button class="template-btn" data-policy="enhanced">Use Template</button>
+                        </div>
+                        <div class="policy-template">
+                            <h5>Enterprise Security</h5>
+                            <ul>
+                                <li>Minimum 16 characters</li>
+                                <li>Complex character mix</li>
+                                <li>Regular rotation required</li>
+                            </ul>
+                            <button class="template-btn" data-policy="enterprise">Use Template</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Export Options -->
+                <div class="report-card">
+                    <h4><i class="fas fa-export"></i> Export Options</h4>
+                    <div class="export-options">
+                        <button id="exportCSV" class="export-btn">
+                            <i class="fas fa-file-csv"></i> Export as CSV
+                        </button>
+                        <button id="exportJSON" class="export-btn">
+                            <i class="fas fa-file-code"></i> Export as JSON
+                        </button>
+                        <button id="exportHTML" class="export-btn">
+                            <i class="fas fa-file-code"></i> Export as HTML
+                        </button>
+                        <button id="copyToClipboard" class="export-btn">
+                            <i class="fas fa-copy"></i> Copy to Clipboard
+                        </button>
                     </div>
                 </div>
             </div>

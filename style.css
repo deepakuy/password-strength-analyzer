@@ -764,6 +764,19 @@ body {
     .chart-container {
         height: 200px;
     }
+    
+    .reports-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .report-card {
+        padding: 1rem;
+    }
+    
+    .policy-templates {
+        grid-template-columns: 1fr;
+    }
 }
 
 .container {
@@ -952,6 +965,278 @@ h1 {
 .suggestions li {
     margin-bottom: 0.3rem;
     font-size: 0.85rem;
+}
+
+/* Reports Section */
+.reports-section {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.reports-section h3 {
+    font-size: 1.2rem;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.reports-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.report-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+}
+
+.report-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.report-card h4 {
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.report-card p {
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+/* Report Options */
+.report-options {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.report-options label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.report-options input[type="checkbox"] {
+    accent-color: var(--primary);
+}
+
+/* Report Buttons */
+.report-btn {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.report-btn.primary {
+    background: var(--primary);
+    color: white;
+}
+
+.report-btn.primary:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+}
+
+.report-btn.secondary {
+    background: var(--info);
+    color:  white;
+}
+
+.report-btn.secondary:hover {
+    background: #138496;
+    transform: translateY(-1px);
+}
+
+/* Security Score Card */
+.score-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    padding: 1.5rem;
+    color: white;
+    margin-bottom: 1rem;
+}
+
+.score-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+}
+
+.score-circle {
+    text-align: center;
+}
+
+.score-circle span {
+    font-size: 2.5rem;
+    font-weight: bold;
+    display: block;
+    line-height: 1;
+}
+
+.score-circle small {
+    font-size: 1rem;
+    opacity: 0.8;
+}
+
+.score-grade {
+    font-size: 3rem;
+    font-weight: bold;
+    opacity: 0.9;
+}
+
+.score-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.score-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.score-item span:first-child {
+    min-width: 80px;
+    font-size: 0.9rem;
+}
+
+.score-bar {
+    flex: 1;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.score-fill {
+    height: 100%;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+    width: 0%;
+}
+
+.score-item span:last-child {
+    min-width: 30px;
+    text-align: center;
+    font-weight: 600;
+}
+
+/* Policy Templates */
+.policy-templates {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.policy-template {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+}
+
+.policy-template h5 {
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+}
+
+.policy-template ul {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 1rem;
+}
+
+.policy-template li {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    padding: 0.25rem 0;
+    position: relative;
+    padding-left: 1rem;
+}
+
+.policy-template li:before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: var(--primary);
+}
+
+.template-btn {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: var(--transition);
+}
+
+.template-btn:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+}
+
+/* Export Options */
+.export-options {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+}
+
+.export-btn {
+    padding: 0.75rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.export-btn:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    transform: translateY(-1px);
 }
 
 /* Responsive Design */
